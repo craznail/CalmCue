@@ -6,41 +6,19 @@
 namespace {
 
 const char* modeName(EngineMode mode) {
-  switch (mode) {
-    case EngineMode::Calibrating:
-      return "CAL";
-    case EngineMode::Running:
-      return "RUN";
-    case EngineMode::Fault:
-      return "FAULT";
-    default:
-      return "UNKNOWN";
-  }
+  return mode == EngineMode::Running ? "RUN" : "FAULT";
 }
 
-const char* levelName(AlertLevel level) {
-  switch (level) {
-    case AlertLevel::Normal:
-      return "L0";
-    case AlertLevel::Mild:
-      return "L1";
-    case AlertLevel::Moderate:
-      return "L2";
-    case AlertLevel::Severe:
-      return "L3";
-    default:
-      return "LX";
-  }
+const char* stateName(bool loud) {
+  return loud ? "RED" : "OFF";
 }
 
 const char* reasonName(TransitionReason reason) {
   switch (reason) {
-    case TransitionReason::CalibrationComplete:
-      return "calibration_complete";
-    case TransitionReason::ThresholdHeld:
-      return "threshold_held";
-    case TransitionReason::BelowExitHeld:
-      return "below_exit_held";
+    case TransitionReason::LoudHeld:
+      return "loud_held";
+    case TransitionReason::QuietHeld:
+      return "quiet_held";
     case TransitionReason::InputFault:
       return "input_fault";
     case TransitionReason::InputRecovered:
@@ -103,22 +81,18 @@ void MicDiagnostics::printWindow(uint32_t nowMs,
   const uint32_t averageReadUs =
       frameCount_ == 0 ? 0 : readDurationSumUs_ / frameCount_;
 
-  Serial.printf("%lu,%lu,%lu,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%s,%s,%s,%u,%lu,%lu,%lu\n",
+  Serial.printf("%lu,%lu,%lu,%.2f,%.2f,%.2f,%.2f,%.2f,%s,%s,%s,%lu,%lu,%lu\n",
                 static_cast<unsigned long>(nowMs),
                 static_cast<unsigned long>(frameCount_),
                 static_cast<unsigned long>(validFrameCount_),
                 levelAverage,
                 validFrameCount_ == 0 ? 0.0F : minimumDbfs_,
                 validFrameCount_ == 0 ? 0.0F : peakDbfs_,
-                level.baselineDbfs,
-                level.fastDbfs,
-                level.sustainedDbfs,
-                level.relativeFastDb,
-                level.relativeSustainedDb,
+                level.smoothedDbfs,
+                level.loudThresholdDbfs,
                 modeName(level.mode),
-                levelName(level.alertLevel),
+                stateName(level.loud),
                 reasonName(windowReason_),
-                static_cast<unsigned int>(level.calibrationPercent),
                 static_cast<unsigned long>(averageReadUs),
                 static_cast<unsigned long>(maxReadDurationUs_),
                 static_cast<unsigned long>(totalErrors_));

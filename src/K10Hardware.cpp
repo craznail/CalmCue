@@ -18,7 +18,10 @@ float rmsToDbfs(float rms) {
 void K10Hardware::begin() {
   k10_.begin();
   k10_.rgb->brightness(CalmCueConfig::kLedBrightness);
-  k10_.rgb->write(-1, CalmCueConfig::kLightsOffColor);
+  k10_.rgb->write(-1, CalmCueConfig::kColorOff);
+  k10_.initScreen(2);
+  k10_.creatCanvas();
+  digital_write(eLCD_BLK, 0);
 }
 
 bool K10Hardware::readMicFrame(MicFrame& frame) {
@@ -103,4 +106,66 @@ void K10Hardware::setLightColor(uint32_t color) {
 
   k10_.rgb->write(-1, color);
   currentLightColor_ = color;
+}
+
+int8_t K10Hardware::pollThresholdAdjustment() {
+  const bool buttonAPressed = k10_.buttonA->isPressed();
+  const bool buttonBPressed = k10_.buttonB->isPressed();
+
+  int8_t adjustment = 0;
+  if (buttonAPressed && !buttonBPressed && !previousButtonAPressed_) {
+    adjustment = -1;
+  } else if (buttonBPressed && !buttonAPressed && !previousButtonBPressed_) {
+    adjustment = 1;
+  }
+
+  previousButtonAPressed_ = buttonAPressed;
+  previousButtonBPressed_ = buttonBPressed;
+  return adjustment;
+}
+
+void K10Hardware::drawSoundLevel(float soundDbfs, float thresholdDbfs) {
+  k10_.canvas->canvasClear();
+  k10_.canvas->canvasText(
+      "CalmCue", 20, 30, 0x202020, k10_.canvas->eCNAndENFont24, 20, true);
+  k10_.canvas->canvasText(
+      String("Current: ") + String(soundDbfs, 1) + " dBFS",
+      20, 85, 0x202020, k10_.canvas->eCNAndENFont24, 20, true);
+  k10_.canvas->canvasText(
+      String("Threshold: ") + String(thresholdDbfs, 0) + " dBFS",
+      20, 135, 0x202020, k10_.canvas->eCNAndENFont24, 20, true);
+  k10_.canvas->canvasText(
+      "A: easier to trigger", 20, 205, 0x202020,
+      k10_.canvas->eCNAndENFont16, 25, true);
+  k10_.canvas->canvasText(
+      "B: harder to trigger", 20, 240, 0x202020,
+      k10_.canvas->eCNAndENFont16, 25, true);
+  k10_.canvas->updateCanvas();
+}
+
+void K10Hardware::showSoundLevel(float soundDbfs,
+                                 float thresholdDbfs,
+                                 uint32_t nowMs) {
+  drawSoundLevel(soundDbfs, thresholdDbfs);
+  digital_write(eLCD_BLK, 1);
+  screenOn_ = true;
+  screenOffAtMs_ = nowMs + CalmCueConfig::kScreenOnAfterAdjustmentMs;
+  lastScreenRefreshAtMs_ = nowMs;
+}
+
+void K10Hardware::updateScreen(uint32_t nowMs,
+                               float soundDbfs,
+                               float thresholdDbfs) {
+  if (screenOn_ && static_cast<int32_t>(nowMs - screenOffAtMs_) >= 0) {
+    digital_write(eLCD_BLK, 0);
+    screenOn_ = false;
+    return;
+  }
+
+  if (screenOn_ &&
+      nowMs - lastScreenRefreshAtMs_ >=
+          CalmCueConfig::kScreenRefreshIntervalMs) {
+    drawSoundLevel(soundDbfs, thresholdDbfs);
+    lastScreenRefreshAtMs_ = nowMs;
+  }
 }

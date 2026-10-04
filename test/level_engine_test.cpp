@@ -29,29 +29,27 @@ int main() {
   uint32_t nowMs = 0;
   engine.begin(nowMs);
 
-  LevelSnapshot snapshot = feed(engine, nowMs, -60.0F, 5200);
+  LevelSnapshot snapshot = feed(engine, nowMs, -55.0F, 2000);
   assert(snapshot.mode == EngineMode::Running);
-  assert(snapshot.alertLevel == AlertLevel::Normal);
-  assert(snapshot.baselineDbfs > -60.1F && snapshot.baselineDbfs < -59.9F);
-
-  snapshot = feed(engine, nowMs, -43.0F, 4000);
-  assert(snapshot.alertLevel == AlertLevel::Normal);
+  assert(!snapshot.loud);
 
   snapshot = feed(engine, nowMs, -10.0F, kFrameMs);
-  snapshot = feed(engine, nowMs, -60.0F, 2000);
-  assert(snapshot.alertLevel == AlertLevel::Normal);
+  snapshot = feed(engine, nowMs, -55.0F, 1500);
+  assert(!snapshot.loud);
 
-  snapshot = feed(engine, nowMs, -38.0F, 2400);
-  assert(snapshot.alertLevel == AlertLevel::Mild);
+  snapshot = feed(engine, nowMs, -30.0F, 1600);
+  assert(snapshot.loud);
 
-  snapshot = feed(engine, nowMs, -34.0F, 2800);
-  assert(snapshot.alertLevel == AlertLevel::Moderate);
+  snapshot = feed(engine, nowMs, -42.0F, 2000);
+  assert(snapshot.loud);
 
-  snapshot = feed(engine, nowMs, -30.0F, 3200);
-  assert(snapshot.alertLevel == AlertLevel::Severe);
+  snapshot = feed(engine, nowMs, -55.0F, 2500);
+  assert(!snapshot.loud);
 
-  snapshot = feed(engine, nowMs, -60.0F, 7500);
-  assert(snapshot.alertLevel == AlertLevel::Normal);
+  engine.setLoudThresholdDbfs(-50.0F);
+  assert(engine.loudThresholdDbfs() == -50.0F);
+  snapshot = feed(engine, nowMs, -45.0F, 1600);
+  assert(snapshot.loud);
 
   snapshot = feed(engine,
                   nowMs,
@@ -59,14 +57,15 @@ int main() {
                   CalmCueConfig::kInvalidFramesBeforeFault * kFrameMs,
                   false);
   assert(snapshot.mode == EngineMode::Fault);
-  assert(snapshot.alertLevel == AlertLevel::Normal);
+  assert(!snapshot.loud);
 
   snapshot = feed(engine,
                   nowMs,
-                  -60.0F,
+                  -55.0F,
                   CalmCueConfig::kValidFramesBeforeRecovery * kFrameMs);
-  assert(snapshot.mode == EngineMode::Calibrating);
-  assert(snapshot.alertLevel == AlertLevel::Normal);
+  assert(snapshot.mode == EngineMode::Running);
+  assert(!snapshot.loud);
+  assert(engine.loudThresholdDbfs() == -50.0F);
 
   std::cout << "LevelEngine tests passed\n";
   return 0;

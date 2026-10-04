@@ -25,9 +25,23 @@ class K10Hardware {
   // Reads one fixed-duration, interleaved 16-bit stereo PCM frame.
   bool readMicFrame(MicFrame& frame);
   void setLightColor(uint32_t color);
+  int8_t pollThresholdAdjustment();
+  void showSoundLevel(float soundDbfs,
+                      float thresholdDbfs,
+                      uint32_t nowMs);
+  void updateScreen(uint32_t nowMs,
+                    float soundDbfs,
+                    float thresholdDbfs);
 
  private:
+  void drawSoundLevel(float soundDbfs, float thresholdDbfs);
+
   UNIHIKER_K10 k10_;
   int16_t micBuffer_[CalmCueConfig::kInterleavedSamplesPerFrame] = {};
-  uint32_t currentLightColor_ = CalmCueConfig::kLightsOffColor;
+  uint32_t currentLightColor_ = CalmCueConfig::kColorOff;
+  bool previousButtonAPressed_ = false;
+  bool previousButtonBPressed_ = false;
+  bool screenOn_ = false;
+  uint32_t screenOffAtMs_ = 0;
+  uint32_t lastScreenRefreshAtMs_ = 0;
 };
